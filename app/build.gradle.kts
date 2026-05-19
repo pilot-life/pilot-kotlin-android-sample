@@ -1,8 +1,26 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// Resolve secrets at build time. Precedence (highest first):
+//   1. -P gradle property (e.g. `./gradlew assembleDebug -PPILOT_API_KEY=…`)
+//   2. environment variable (handy on CI)
+//   3. local.properties (gitignored — dev-local)
+//   4. empty string fallback (lets debug builds compile without secrets;
+//      runtime calls will 401 against the real API)
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun secret(name: String): String =
+    (providers.gradleProperty(name).orNull
+        ?: System.getenv(name)
+        ?: localProps.getProperty(name)
+        ?: "")
 
 android {
     namespace = "life.pilot.partner.testapp"
@@ -14,10 +32,16 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+
+        buildConfigField("String", "PILOT_API_KEY", "\"${secret("PILOT_API_KEY")}\"")
+        buildConfigField("String", "PILOT_ORG_UUID", "\"${secret("PILOT_ORG_UUID")}\"")
+        buildConfigField("String", "PILOT_GATEWAY_SECRET", "\"${secret("PILOT_GATEWAY_SECRET")}\"")
+        buildConfigField("String", "PILOT_ENVIRONMENT", "\"${secret("PILOT_ENVIRONMENT").ifBlank { "SANDBOX" }}\"")
     }
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     compileOptions {

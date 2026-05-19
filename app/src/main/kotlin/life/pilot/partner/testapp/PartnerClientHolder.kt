@@ -5,18 +5,26 @@ import life.pilot.partner.sdk.PilotPartnerClient
 import okhttp3.logging.HttpLoggingInterceptor
 
 /**
- * Process-wide single instance, mirroring the integration guide's advice
- * ("Reuse one PilotPartnerClient per app process").
+ * Process-wide single instance, mirroring the integration guide's
+ * "reuse one PilotPartnerClient per app process" advice.
  *
- * In a real partner app these come from BuildConfig / secrets storage.
- * Substitute real values via gradle.properties or env before running.
+ * Secrets come from [BuildConfig], which is populated at build time from
+ * (in order) `-P` Gradle properties → env vars → `local.properties`. See
+ * `app/build.gradle.kts` and the integration guide's "Configuring secrets"
+ * section. We do **not** call `System.getenv(...)` here — on Android that
+ * reads the zygote-launched process environment, which never contains
+ * developer-supplied env vars.
  */
 object PartnerClientHolder {
     val client: PilotPartnerClient by lazy {
+        val env = runCatching { PartnerEnvironment.valueOf(BuildConfig.PILOT_ENVIRONMENT) }
+            .getOrDefault(PartnerEnvironment.SANDBOX)
+
         PilotPartnerClient.builder()
-            .apiKey(System.getenv("PILOT_API_KEY") ?: "test-key")
-            .organizationUuid(System.getenv("PILOT_ORG_UUID") ?: "00000000-0000-0000-0000-000000000000")
-            .environment(PartnerEnvironment.SANDBOX)
+            .apiKey(BuildConfig.PILOT_API_KEY.ifBlank { "missing-PILOT_API_KEY" })
+            .organizationUuid(BuildConfig.PILOT_ORG_UUID.ifBlank { "missing-PILOT_ORG_UUID" })
+            .gatewaySecret(BuildConfig.PILOT_GATEWAY_SECRET.takeIf { it.isNotBlank() })
+            .environment(env)
             .logging(HttpLoggingInterceptor.Level.BASIC)
             .build()
     }
