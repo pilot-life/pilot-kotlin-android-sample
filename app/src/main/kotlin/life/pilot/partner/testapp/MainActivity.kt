@@ -115,31 +115,17 @@ private fun EventListPane(
 ) {
     val state by vm.events.collectAsState()
     val filters by vm.filters.collectAsState()
+    // imageUrlFor defaults to { it.imageUrl } — the partner API now
+    // returns imageUrl directly, so no resolver override is needed.
     EventListWithFilters(
         state = state,
         filters = filters,
         onFiltersChange = vm::updateFilters,
         contentPadding = contentPadding,
-        // Partner API doesn't expose event imagery yet — stub with a
-        // deterministic placeholder per UUID so the listing renders with
-        // images during integration testing. Real partners would resolve
-        // imageUrl from their CMS / S3 bucket / similar.
-        imageUrlFor = { evt -> ImageUrls.placeholder(evt.eventUUID) },
         onLoadMore = { vm.loadMoreEvents() },
         onEventClick = onEventClick,
         modifier = Modifier.fillMaxSize(),
     )
-}
-
-private object ImageUrls {
-    /**
-     * Stable picsum.photos URL derived from the event UUID. Same UUID
-     * always renders the same image so visual diffs stay deterministic.
-     */
-    fun placeholder(eventUuid: String): String {
-        val seed = eventUuid.hashCode().toUInt() % 1084U
-        return "https://picsum.photos/seed/pilot-evt-$seed/800/450"
-    }
 }
 
 @Composable
