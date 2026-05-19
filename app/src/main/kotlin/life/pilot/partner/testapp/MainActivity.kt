@@ -2,11 +2,16 @@ package life.pilot.partner.testapp
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -62,6 +67,15 @@ private fun AppRoot(client: PilotPartnerClient) {
     var screen: Screen by remember { mutableStateOf(Screen.List) }
     var pendingSelections: List<TicketSelection>? by remember { mutableStateOf(null) }
 
+    val onBack: () -> Unit = {
+        if (pendingSelections != null) pendingSelections = null
+        else if (screen is Screen.Detail) screen = Screen.List
+    }
+    // Android system back: same handler. Active whenever there's
+    // somewhere to go back to so we don't intercept the activity-close
+    // gesture on the events list.
+    BackHandler(enabled = screen is Screen.Detail || pendingSelections != null) { onBack() }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -70,6 +84,16 @@ private fun AppRoot(client: PilotPartnerClient) {
                         is Screen.List -> "Events"
                         is Screen.Detail -> "Event details"
                     })
+                },
+                navigationIcon = {
+                    if (screen is Screen.Detail) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = "Back",
+                            )
+                        }
+                    }
                 },
             )
         },
