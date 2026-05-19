@@ -24,7 +24,10 @@ object PartnerClientHolder {
             .apiKey(BuildConfig.PILOT_API_KEY.ifBlank { "missing-PILOT_API_KEY" })
             .organizationUuid(BuildConfig.PILOT_ORG_UUID.ifBlank { "missing-PILOT_ORG_UUID" })
             .gatewaySecret(BuildConfig.PILOT_GATEWAY_SECRET.takeIf { it.isNotBlank() })
-            .environment(env)
+            .also { b ->
+                val override = BuildConfig.PILOT_BASE_URL
+                if (override.isNotBlank()) b.baseUrl(override) else b.environment(env)
+            }
             .logging(HttpLoggingInterceptor.Level.BASIC)
             .build()
     }

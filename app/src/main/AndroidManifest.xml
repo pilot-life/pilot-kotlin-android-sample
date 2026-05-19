@@ -4,6 +4,7 @@
 
     <application
         android:label="Pilot Partner Test"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/Theme.PilotPartnerTest">
         <activity
             android:name=".MainActivity"

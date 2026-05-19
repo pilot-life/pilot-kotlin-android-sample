@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- HTTPS-only by default for everything that isn't a dev loopback. -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Allow cleartext only to localhost (real device USB-forwarded) and
+         10.0.2.2 (Android emulator's view of the host machine). This lets
+         PILOT_BASE_URL=http://10.0.2.2:3000/partner/v1/ work without
+         blanket-enabling cleartext for the whole app. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

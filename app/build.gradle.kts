@@ -37,6 +37,11 @@ android {
         buildConfigField("String", "PILOT_ORG_UUID", "\"${secret("PILOT_ORG_UUID")}\"")
         buildConfigField("String", "PILOT_GATEWAY_SECRET", "\"${secret("PILOT_GATEWAY_SECRET")}\"")
         buildConfigField("String", "PILOT_ENVIRONMENT", "\"${secret("PILOT_ENVIRONMENT").ifBlank { "SANDBOX" }}\"")
+        // Optional explicit base URL — when set, takes precedence over
+        // PILOT_ENVIRONMENT. Useful for pointing at localhost (use
+        // http://10.0.2.2:PORT/partner/v1/ from the Android emulator)
+        // or a partner-side mock.
+        buildConfigField("String", "PILOT_BASE_URL", "\"${secret("PILOT_BASE_URL")}\"")
     }
 
     buildFeatures {
