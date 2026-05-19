@@ -115,16 +115,20 @@ private fun EventListPane(
 ) {
     val state by vm.events.collectAsState()
     val filters by vm.filters.collectAsState()
-    // imageUrlFor defaults to { it.imageUrl } — the partner API now
-    // returns imageUrl directly, so no resolver override is needed.
+    // Scaffold padding pushes the WHOLE component (filter bar + list)
+    // below the TopAppBar via the modifier. The inner LazyColumn's own
+    // contentPadding stays at its default (16dp around items).
+    // imageUrlFor defaults to { it.imageUrl } — partner API returns it.
     EventListWithFilters(
         state = state,
         filters = filters,
         onFiltersChange = vm::updateFilters,
-        contentPadding = contentPadding,
         onLoadMore = { vm.loadMoreEvents() },
+        onRefresh = { vm.refreshEvents() },
         onEventClick = onEventClick,
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .padding(contentPadding)
+            .fillMaxSize(),
     )
 }
 
@@ -146,6 +150,14 @@ private fun EventDetailPane(
         isLoading = loading,
         error = error,
         modifier = Modifier.padding(contentPadding),
+        // Demo wiring for RTA + Registration. The partner API doesn't yet
+        // expose this state; real partners would source it from their own
+        // backend keyed by eventUUID. Toggle the predicate to true to see
+        // the buttons render.
+        isRequestToAttendEnabled = { false },
+        registrationTicketTypesFor = { emptyList() },
+        onRequestToAttend = { /* TODO: partner-side RTA flow */ },
+        onRegister = { /* TODO: partner-side free/RSVP checkout */ },
         onContinue = onContinue,
         onRetry = { vm.loadEvent(eventUuid) },
     )
