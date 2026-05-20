@@ -1,10 +1,13 @@
-# pilot-kotlin-test
+# pilot-kotlin-android-sample
 
 A minimal Android app that integrates the
 [`life.pilot:pilot-partner-sdk`](https://github.com/pilot-life/pilot-kotlin) and
 `life.pilot:pilot-partner-ui-compose` artifacts end-to-end. Used as a
 canary to catch consumer-facing issues (transitive scope leaks, missing
 R8 rules, runtime serialization failures) before they reach partners.
+
+> Renamed from `pilot-kotlin-test`. The iOS counterpart lives at
+> [pilot-life/pilot-kotlin-ios-sample](https://github.com/pilot-life/pilot-kotlin-ios-sample).
 
 ## What it does
 
