@@ -17,7 +17,7 @@ import life.pilot.partner.sdk.model.ClaimItemRequest
 import life.pilot.partner.sdk.webhooks.HmacVerifier
 import life.pilot.partner.sdk.webhooks.WebhookParser
 import life.pilot.partner.sdk.webhooks.WebhookPayload
-import okhttp3.logging.HttpLoggingInterceptor
+import io.ktor.client.plugins.logging.LogLevel
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.jupiter.api.AfterEach
@@ -46,7 +46,7 @@ class SdkIntegrationSmokeTest {
             .apiKey("partner-key")
             .organizationUuid("org-uuid")
             .baseUrl(server.url("/").toString())
-            .logging(HttpLoggingInterceptor.Level.NONE)
+            .logging(LogLevel.NONE)
             .build()
     }
 
@@ -56,7 +56,7 @@ class SdkIntegrationSmokeTest {
 
     @Test fun `consumer can list events end-to-end`() = runTest {
         server.enqueue(
-            MockResponse().setResponseCode(200).setBody(
+            MockResponse().setHeader("Content-Type", "application/json").setResponseCode(200).setBody(
                 """{"events":[{"eventUUID":"e1","name":"Show","startDate":"2026-06-01T20:00:00Z","endDate":"2026-06-02T00:00:00Z","venueName":"V"}],"nextCursor":null}""",
             ),
         )
@@ -71,7 +71,7 @@ class SdkIntegrationSmokeTest {
 
     @Test fun `consumer catches PartnerException SoldOut by type`() = runTest {
         server.enqueue(
-            MockResponse().setResponseCode(409).setBody(
+            MockResponse().setHeader("Content-Type", "application/json").setResponseCode(409).setBody(
                 """{"code":"SOLD_OUT","message":"gone","ticketTypeUUID":"tt-1"}""",
             ),
         )
@@ -88,12 +88,12 @@ class SdkIntegrationSmokeTest {
 
     @Test fun `full claim-then-checkout flow returns an orderUUID`() = runTest {
         server.enqueue(
-            MockResponse().setResponseCode(201).setBody(
+            MockResponse().setHeader("Content-Type", "application/json").setResponseCode(201).setBody(
                 """{"claimId":"c1","claimIds":["c1"],"expiresAt":"2026-05-19T11:00:00Z","items":[]}""",
             ),
         )
         server.enqueue(
-            MockResponse().setResponseCode(201).setBody(
+            MockResponse().setHeader("Content-Type", "application/json").setResponseCode(201).setBody(
                 """{"orderUUID":"ord-1","orderStatus":"PAID","totalAmount":"65.00","patron":{"userUUID":"u1"}}""",
             ),
         )

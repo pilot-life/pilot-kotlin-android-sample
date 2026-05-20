@@ -1,8 +1,8 @@
 package life.pilot.partner.testapp
 
+import io.ktor.client.plugins.logging.LogLevel
 import life.pilot.partner.sdk.PartnerEnvironment
 import life.pilot.partner.sdk.PilotPartnerClient
-import okhttp3.logging.HttpLoggingInterceptor
 
 /**
  * Process-wide single instance, mirroring the integration guide's
@@ -28,7 +28,7 @@ object PartnerClientHolder {
                 val override = BuildConfig.PILOT_BASE_URL
                 if (override.isNotBlank()) b.baseUrl(override) else b.environment(env)
             }
-            .logging(HttpLoggingInterceptor.Level.BASIC)
+            .logging(LogLevel.INFO)
             .build()
     }
 }
