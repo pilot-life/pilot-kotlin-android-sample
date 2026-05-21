@@ -36,7 +36,13 @@ import life.pilot.partner.sdk.model.ClaimItemRequest
 import life.pilot.partner.sdk.model.CheckoutPatron
 import life.pilot.partner.sdk.model.CheckoutPayment
 import life.pilot.partner.sdk.model.CheckoutRequest
+import life.pilot.partner.sdk.model.EventDetail
+import life.pilot.partner.sdk.model.RegistrationCreateRequest
+import life.pilot.partner.sdk.model.RtaCreateRequest
+import life.pilot.partner.sdk.model.TicketTypeRow
 import life.pilot.partner.ui.checkout.CheckoutSheet
+import life.pilot.partner.ui.checkout.RegistrationFormSheet
+import life.pilot.partner.ui.checkout.RtaFormSheet
 import life.pilot.partner.ui.event.EventDetailScreen
 import life.pilot.partner.ui.event.EventListWithFilters
 import life.pilot.partner.ui.event.TicketSelection
@@ -64,17 +70,24 @@ private sealed interface Screen {
 @Composable
 private fun AppRoot(client: PilotPartnerClient) {
     val vm: EventsViewModel = viewModel(factory = EventsViewModelFactory(client))
+    val ctx = LocalContext.current
     var screen: Screen by remember { mutableStateOf(Screen.List) }
     var pendingSelections: List<TicketSelection>? by remember { mutableStateOf(null) }
+    var rtaForEvent: EventDetail? by remember { mutableStateOf(null) }
+    var registrationForTicket: TicketTypeRow? by remember { mutableStateOf(null) }
 
     val onBack: () -> Unit = {
-        if (pendingSelections != null) pendingSelections = null
-        else if (screen is Screen.Detail) screen = Screen.List
+        when {
+            rtaForEvent != null -> rtaForEvent = null
+            registrationForTicket != null -> registrationForTicket = null
+            pendingSelections != null -> pendingSelections = null
+            screen is Screen.Detail -> screen = Screen.List
+        }
     }
     // Android system back: same handler. Active whenever there's
     // somewhere to go back to so we don't intercept the activity-close
     // gesture on the events list.
-    BackHandler(enabled = screen is Screen.Detail || pendingSelections != null) { onBack() }
+    BackHandler(enabled = screen is Screen.Detail || pendingSelections != null || rtaForEvent != null || registrationForTicket != null) { onBack() }
 
     Scaffold(
         topBar = {
@@ -113,7 +126,34 @@ private fun AppRoot(client: PilotPartnerClient) {
                 contentPadding = padding,
                 eventUuid = s.eventUuid,
                 onContinue = { selections -> pendingSelections = selections },
+                onRequestToAttend = { event -> rtaForEvent = event },
+                onRegister = { selections ->
+                    selections.firstOrNull()?.let { registrationForTicket = it.ticketType }
+                },
             )
+        }
+
+        rtaForEvent?.let { event ->
+            RtaBottomSheet(
+                client = client,
+                event = event,
+                onDismiss = { rtaForEvent = null },
+                onSuccess = { rtaForEvent = null },
+                showToast = { message -> android.widget.Toast.makeText(ctx, message, android.widget.Toast.LENGTH_LONG).show() },
+            )
+        }
+
+        registrationForTicket?.let { ticket ->
+            (screen as? Screen.Detail)?.let { current ->
+                RegistrationBottomSheet(
+                    client = client,
+                    eventUuid = current.eventUuid,
+                    ticketType = ticket,
+                    onDismiss = { registrationForTicket = null },
+                    onSuccess = { registrationForTicket = null },
+                    showToast = { message -> android.widget.Toast.makeText(ctx, message, android.widget.Toast.LENGTH_LONG).show() },
+                )
+            }
         }
 
         if (pendingSelections != null && screen is Screen.Detail) {
@@ -162,6 +202,8 @@ private fun EventDetailPane(
     contentPadding: PaddingValues,
     eventUuid: String,
     onContinue: (List<TicketSelection>) -> Unit,
+    onRequestToAttend: (EventDetail) -> Unit,
+    onRegister: (List<TicketSelection>) -> Unit,
 ) {
     val detail by vm.detail.collectAsState()
     val inventory by vm.inventory.collectAsState()
@@ -174,14 +216,10 @@ private fun EventDetailPane(
         isLoading = loading,
         error = error,
         modifier = Modifier.padding(contentPadding),
-        // Demo wiring for RTA + Registration. The partner API doesn't yet
-        // expose this state; real partners would source it from their own
-        // backend keyed by eventUUID. Toggle the predicate to true to see
-        // the buttons render.
-        isRequestToAttendEnabled = { false },
-        registrationTicketTypesFor = { emptyList() },
-        onRequestToAttend = { /* TODO: partner-side RTA flow */ },
-        onRegister = { /* TODO: partner-side free/RSVP checkout */ },
+        // isRequestToAttendEnabled defaults to event.rta?.enabled == true
+        // registrationTicketTypesFor defaults to inventory.registrationTicketTypes
+        onRequestToAttend = onRequestToAttend,
+        onRegister = onRegister,
         onContinue = onContinue,
         onRetry = { vm.loadEvent(eventUuid) },
     )
@@ -239,6 +277,90 @@ private fun CheckoutBottomSheet(
                         onCompleted()
                     } catch (t: Throwable) {
                         error = t.message ?: "Checkout failed"
+                    } finally {
+                        submitting = false
+                    }
+                }
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RtaBottomSheet(
+    client: PilotPartnerClient,
+    event: EventDetail,
+    onDismiss: () -> Unit,
+    onSuccess: () -> Unit,
+    showToast: (String) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+    var submitting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        RtaFormSheet(
+            isSubmitting = submitting,
+            error = error,
+            onSubmit = { req ->
+                submitting = true
+                error = null
+                scope.launch {
+                    try {
+                        val resp = client.events.requestToAttend(
+                            eventUuid = event.eventUUID,
+                            idempotencyKey = IdempotencyKey.generate(),
+                            body = req,
+                        )
+                        showToast("RTA submitted: ${resp.message}")
+                        onSuccess()
+                    } catch (t: Throwable) {
+                        error = t.message ?: "RTA submission failed"
+                    } finally {
+                        submitting = false
+                    }
+                }
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RegistrationBottomSheet(
+    client: PilotPartnerClient,
+    eventUuid: String,
+    ticketType: TicketTypeRow,
+    onDismiss: () -> Unit,
+    onSuccess: () -> Unit,
+    showToast: (String) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+    var submitting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        RegistrationFormSheet(
+            ticketType = ticketType,
+            isSubmitting = submitting,
+            error = error,
+            onSubmit = { req ->
+                submitting = true
+                error = null
+                scope.launch {
+                    try {
+                        val resp = client.events.createRegistration(
+                            eventUuid = eventUuid,
+                            idempotencyKey = IdempotencyKey.generate(),
+                            body = req,
+                        )
+                        showToast("Registered (id ${resp.registrationId}, status ${resp.status})")
+                        onSuccess()
+                    } catch (t: Throwable) {
+                        error = t.message ?: "Registration failed"
                     } finally {
                         submitting = false
                     }
