@@ -74,8 +74,14 @@ dependencies {
     // Consume the SDK + UI library published to ~/.m2 by pilot-kotlin's
     // `publishToMavenLocal`. Real partners would swap mavenLocal() for
     // GitHub Packages.
+    //
+    // KMP coords — Gradle's metadata resolver picks the right per-target
+    // variant automatically (Android consumers get the -android AAR, JVM
+    // backends get the -jvm JAR). Previous pre-KMP coord
+    // `life.pilot:pilot-partner-ui-compose` is now stale; canonical
+    // module coord is `life.pilot:pilot-partner-ui`.
     implementation("life.pilot:pilot-partner-sdk:0.1.0-SNAPSHOT")
-    implementation("life.pilot:pilot-partner-ui-compose:0.1.0-SNAPSHOT")
+    implementation("life.pilot:pilot-partner-ui:0.1.0-SNAPSHOT")
 
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.3")
 
